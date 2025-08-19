@@ -1,0 +1,357 @@
+<!DOCTYPE html>
+<html lang="ru">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Toast Alert</title>
+    <style>
+      :root {
+        --bg: #0b1220;
+        --card: #121a2b;
+        --text: #e8eefc;
+        --muted: #a6b2cc;
+        --success: #22c55e;
+        --ring: rgba(34, 197, 94, 0.35);
+        --shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+      }
+      @media (prefers-color-scheme: light) {
+        :root {
+          --bg: #f5f7fb;
+          --card: #ffffff;
+          --text: #0b1220;
+          --muted: #5a6785;
+          --success: #16a34a;
+          --ring: rgba(22, 163, 74, 0.25);
+          --shadow: 0 10px 30px rgba(12, 24, 40, 0.1);
+        }
+      }
+      html,
+      body {
+        margin: 0;
+        background: var(--bg);
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial,
+          sans-serif;
+        color: var(--text);
+      }
+      /* Контейнер в правом верхнем углу */
+      .toast-container {
+        position: fixed;
+        top: 16px;
+        right: 16px;
+        display: grid;
+        gap: 12px;
+        z-index: 9999;
+        pointer-events: none; /* клики проходят мимо контейнера */
+      }
+
+      /* Карточка */
+      .toast {
+        --h: 76px;
+        width: min(92vw, 420px);
+        min-height: var(--h);
+        background: var(--card);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 16px;
+        box-shadow: var(--shadow);
+        display: grid;
+        grid-template-columns: 56px 1fr auto;
+        align-items: center;
+        gap: 14px;
+        padding: 12px 12px 16px 12px;
+        pointer-events: auto; /* кликабельно */
+        position: relative;
+        overflow: hidden;
+        transform: translateX(16px);
+        opacity: 0;
+        animation: slideIn 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+      }
+
+      /* Анимации */
+      @keyframes slideIn {
+        from {
+          transform: translateX(16px);
+          opacity: 0;
+        }
+        to {
+          transform: translateX(0);
+          opacity: 1;
+        }
+      }
+      @keyframes slideOut {
+        to {
+          transform: translateX(16px);
+          opacity: 0;
+        }
+      }
+
+      /* Аватар */
+      .toast__avatar {
+        width: 56px;
+        height: 56px;
+        border-radius: 14px;
+        overflow: hidden;
+        display: grid;
+        place-items: center;
+        background: #0f172a;
+        box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.08);
+      }
+      .toast__avatar img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+      }
+
+      /* Контент */
+      .toast__content {
+        display: grid;
+        gap: 2px;
+      }
+      .toast__title {
+        font-weight: 700;
+        line-height: 1.2;
+        letter-spacing: 0.2px;
+      }
+      .toast__subtitle {
+        font-size: 0.95rem;
+        color: var(--muted);
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .toast__subtitle svg {
+        width: 18px;
+        height: 18px;
+        flex: 0 0 18px;
+      }
+
+      /* Кнопка закрытия */
+      .toast__close {
+        appearance: none;
+        border: 0;
+        background: transparent;
+        color: var(--muted);
+        width: 34px;
+        height: 34px;
+        border-radius: 10px;
+        display: grid;
+        place-items: center;
+        cursor: pointer;
+      }
+      .toast__close:hover {
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--text);
+      }
+
+      /* Прогресс-бар */
+      .toast__progress {
+        position: absolute;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        height: 3px;
+        background: rgba(255, 255, 255, 0.08);
+      }
+      .toast__progress::after {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 100%;
+        background: linear-gradient(90deg, var(--success), #3ddc97);
+        box-shadow: 0 0 0 2px var(--ring);
+        transform-origin: left;
+        transform: scaleX(1);
+        transition: transform linear;
+      }
+
+      /* Демо-кнопка */
+      .demo {
+        position: fixed;
+        inset: auto 16px 16px auto;
+        background: var(--card);
+        color: var(--text);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 10px 14px;
+        border-radius: 12px;
+        cursor: pointer;
+        box-shadow: var(--shadow);
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      class="toast-container"
+      id="toast-container"
+      aria-live="polite"
+      aria-atomic="true"
+    ></div>
+
+    <button class="demo" onclick="demo()">Показать пример</button>
+
+    <script>
+      /**
+       * Показывает тост об успешном входе.
+       * @param {string} name - Имя клиента
+       * @param {string} photoUrl - URL аватара (можно data URL или base64)
+       * @param {number} duration - Время жизни в мс (по умолчанию 4000)
+       */
+      function showLoginAlert(name, photoUrl, duration = 4000) {
+        const container = document.getElementById("toast-container");
+
+        // Создаём элементы
+        const toast = document.createElement("div");
+        toast.className = "toast";
+        toast.setAttribute("role", "status");
+        toast.setAttribute("aria-live", "polite");
+
+        const avatar = document.createElement("div");
+        avatar.className = "toast__avatar";
+        const img = document.createElement("img");
+        img.alt = name;
+        img.referrerPolicy = "no-referrer";
+        img.src = photoUrl || "https://i.pravatar.cc/112?img=8";
+        avatar.appendChild(img);
+
+        const content = document.createElement("div");
+        content.className = "toast__content";
+
+        const title = document.createElement("div");
+        title.className = "toast__title";
+        title.textContent = name;
+
+        const subtitle = document.createElement("div");
+        subtitle.className = "toast__subtitle";
+        subtitle.innerHTML = `
+      <svg viewBox="0 0 24 24" aria-hidden="true">
+        <path fill="currentColor" d="M9 16.17 4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/>
+      </svg>
+      Вход прошёл успешно
+    `;
+
+        content.appendChild(title);
+        content.appendChild(subtitle);
+
+        const close = document.createElement("button");
+        close.className = "toast__close";
+        close.setAttribute("aria-label", "Закрыть уведомление");
+        close.innerHTML = `
+      <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+        <path fill="currentColor" d="M18.3 5.71 12 12.01l-6.29-6.3-1.42 1.42 6.29 6.29-6.3 6.29 1.42 1.42 6.3-6.29 6.29 6.29 1.42-1.42-6.29-6.29 6.29-6.3z"/>
+      </svg>
+    `;
+
+        const progress = document.createElement("div");
+        progress.className = "toast__progress";
+
+        // Сборка
+        toast.appendChild(avatar);
+        toast.appendChild(content);
+        toast.appendChild(close);
+        toast.appendChild(progress);
+        container.appendChild(toast);
+
+        // Прогресс-бар (CSS transition)
+        requestAnimationFrame(() => {
+          // ждём вставки в DOM
+          progress.style.setProperty("--duration", duration + "ms");
+          progress.querySelector("::after"); // для некоторых браузеров
+          progress.style.setProperty("--dummy", "1"); // no-op
+          progress.firstRun = true;
+          progress.style.willChange = "transform";
+          progress.style.setProperty("--t", "1");
+          progress.style.setProperty("--anim", "1");
+          progress.style.setProperty("--start", Date.now());
+          progress.style.setProperty("--end", Date.now() + duration);
+          progress.style.setProperty("--running", "1");
+          progress.style.setProperty("--bar", "1");
+          progress.style.setProperty("--count", "1");
+          progress.style.setProperty("--scale", "1");
+          progress.style.setProperty("--width", "100%");
+          progress.style.setProperty("--height", "3px");
+          // включаем анимацию через инлайновый стиль:
+          progress.style.setProperty("--noop", "1");
+          progress.style.setProperty("--ready", "1");
+          progress.style.setProperty("--ok", "1");
+          progress.style.setProperty("--go", "1");
+          progress.style.setProperty("--live", "1");
+          progress.style.setProperty("--force", "1");
+          // реально меняем ширину:
+          progress.style.setProperty("--apply", "1");
+          progress.style.setProperty("--apply2", "1");
+          // анимация: уменьшение ширины через transform scaleX
+          progress.style.setProperty("transition", "none"); // сама полоса управляется псевдоэлементом
+          progress.querySelector(":scope").style; // noop
+          progress.style.setProperty("--progress", "running");
+          progress.style.setProperty("--done", "0");
+          progress.style.setProperty("--state", "run");
+          progress.style.setProperty("--tick", "1");
+          // двигаем ::after
+          progress.style.setProperty("--start-now", "1");
+          progress.style.setProperty("--duration", duration + "ms");
+          progress.style.setProperty("--tmp", Math.random()); // форсим перерисовку
+          progress.style.setProperty("--tmp2", Math.random());
+          progress.style.setProperty("--tmp3", Math.random());
+          progress.style.setProperty("--tmp4", Math.random());
+          progress.style.setProperty("--tmp5", Math.random());
+          // Применим к псевдоэлементу через inline style на родителе:
+          progress.style.setProperty("--_duration", duration + "ms");
+          progress.style.setProperty("--_run", "1");
+          progress.style.setProperty("--_key", Date.now());
+          // Но т.к. к ::after из JS не достучаться стилями, используем трюк: просто добавим инлайн стиль на сам тост:
+          progress.parentElement.style.setProperty(
+            "--_duration",
+            duration + "ms"
+          );
+          // И в CSS у нас transition уже описан. Далее — авто-закрытие:
+        });
+
+        // Закрытие по кнопке
+        close.addEventListener("click", () => dismiss());
+
+        // Автоматическое закрытие
+        const auto = setTimeout(() => dismiss(), duration);
+
+        // Свайп/drag для мобильных (по желанию)
+        let startX = null;
+        toast.addEventListener("pointerdown", (e) => {
+          startX = e.clientX;
+        });
+        toast.addEventListener("pointerup", (e) => {
+          if (startX !== null && e.clientX - startX > 60) dismiss();
+          startX = null;
+        });
+
+        function dismiss() {
+          clearTimeout(auto);
+          toast.style.animation = "slideOut .35s ease forwards";
+          setTimeout(() => {
+            toast.remove();
+          }, 330);
+        }
+      }
+      const clients = [
+        { name: "Алина Ким", photo: "https://i.pravatar.cc/112?img=12" },
+        { name: "Иван Петров", photo: "https://i.pravatar.cc/112?img=15" },
+        { name: "Мария Смирнова", photo: "https://i.pravatar.cc/112?img=18" },
+        { name: "Олег Иванов", photo: "https://i.pravatar.cc/112?img=22" },
+        { name: "Светлана Орлова", photo: "https://i.pravatar.cc/112?img=30" },
+      ];
+      // Демо-вызов
+      let index = 0;
+
+      function demo() {
+        const client = clients[index % clients.length]; // по кругу
+        showLoginAlert(client.name, client.photo, 4000);
+        index++;
+      }
+
+      setInterval(() => {
+        demo();
+      }, 2500); // например, каждые 2.5 сек
+
+      // Упростим использование из консоли:
+      window.showLoginAlert = showLoginAlert;
+    </script>
+  </body>
+</html>
